@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <!-- Mobile optimization -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Stock Synesthesia - Multi Stock</title>
+  <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background: #111;
+      font-family: 'Quicksand', sans-serif;
+      height: 100%;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+    /* Canvas covers the full window; drawing area starts after a left margin */
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      background: #111;
+    }
+    /* Splash screen overlay */
+    #splash {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(135deg, #2c3e50, #bdc3c7);
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      text-align: center;
+      padding: 20px;
+      box-sizing: border-box;
+    }
+    #splash h1 { font-size: 2.5em; margin-bottom: 0.5em; max-width: 90%; }
+    #splash p { font-size: 1em; max-width: 90%; }
+    /* Hamburger menu icon (hidden initially) */
+    #hamburger {
+      position: fixed;
+      top: 15px;
+      right: 15px;
+      font-size: 28px;
+      color: #fff;
+      z-index: 200;
+      cursor: pointer;
+      user-select: none;
+      display: none;
+    }
+    /* Settings panel overlay */
+    #settingsPanel {
+      position: fixed;
+      top: 0;
+      right: 0;
+      width: 320px;
+      height: 100%;
+      background: rgba(0,0,0,0.95);
+      color: #fff;
+      padding: 20px;
+      box-sizing: border-box;
+      transform: translateX(100%);
+      transition: transform 0.3s ease;
+      z-index: 150;
+      overflow-y: auto;
+    }
+    #settingsPanel.visible { transform: translateX(0); }
+    #settingsPanel h2 {
+      margin-top: 0;
+      font-size: 1.8em;
+      border-bottom: 1px solid #444;
+      padding-bottom: 10px;
+    }
+    #settingsPanel label {
+      display: block;
+      margin: 15px 0 5px;
+      font-size: 0.9em;
+    }
+    #settingsPanel input[type="color"],
+    #settingsPanel input[type="number"] {
+      width: 100%;
+      padding: 8px;
+      font-size: 1em;
+      margin-bottom: 10px;
+      border: none;
+      border-radius: 4px;
+      box-sizing: border-box;
+    }
+    #settingsPanel button {
+      width: 100%;
+      padding: 10px;
+      margin-top: 10px;
+      font-size: 1em;
+      border: none;
+      border-radius: 4px;
+      background: #2980b9;
+      color: #fff;
+      cursor: pointer;
+    }
+    /* Left sidebar for stock controls (hidden initially) */
+    #stockControls {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 120px;
+      height: 100%;
+      background: rgba(0,0,0,0.8);
+      z-index: 130;
+      padding: 10px;
+      box-sizing: border-box;
+      overflow-y: auto;
+      display: none;
+    }
+    .stockControl {
+      margin-bottom: 10px;
+      text-align: center;
+      position: relative;
+    }
+    .stockButton {
+      width: 50px;
+      height: 50px;
+      border-radius: 10px;
+      border: none;
+      outline: none;
+      cursor: pointer;
+      background: #555;
+      color: #fff;
+      font-weight: bold;
+    }
+    .instrumentSelect {
+      width: 100%;
+      padding: 4px;
+      border-radius: 4px;
+      border: none;
+      font-size: 0.9em;
+      margin-top: 4px;
+      box-sizing: border-box;
+    }
+    .removeButton {
+      position: absolute;
+      top: -5px;
+      right: -5px;
+      width: 20px;
+      height: 20px;
+      border: none;
+      border-radius: 50%;
+      background: #e74c3c;
+      color: #fff;
+      font-size: 14px;
+      line-height: 20px;
+      cursor: pointer;
+    }
+    /* Add Stock button at the bottom of the sidebar */
+    #addStockButton {
+      width: 100%;
+      padding: 5px;
+      margin-top: 10px;
+      border: none;
+      border-radius: 4px;
+      background: #2980b9;
+      color: #fff;
+      cursor: pointer;
+    }
+    /* Custom modal for adding a stock */
+    #addStockModal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.5);
+      display: none;
+      z-index: 250;
+      align-items: center;
+      justify-content: center;
+      box-sizing: border-box;
+      padding: 10px;
+    }
+    #addStockModal .modalContent {
+      background: linear-gradient(135deg, #2c3e50, #bdc3c7);
+      color: #fff;
+      padding: 20px;
+      border-radius: 8px;
+      text-align: center;
+      width: 90%;
+      max-width: 300px;
+      box-sizing: border-box;
+    }
+    #addStockModal input[type="text"] {
+      width: 100%;
+      padding: 10px;
+      margin: 10px 0;
+      font-size: 1em;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      box-sizing: border-box;
+    }
+    #addStockModal button {
+      padding: 10px 20px;
+      font-size: 1em;
+      margin: 5px;
+      border: none;
+      border-radius: 4px;
+      background: #2980b9;
+      color: #fff;
+      cursor: pointer;
+    }
+    @media (max-width: 600px) {
+      #settingsPanel { width: 280px; }
+      #stockControls { width: 100px; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Fullscreen canvas for drawing graphs -->
+  <canvas id="canvas"></canvas>
+  
+  <!-- Splash screen overlay -->
+  <div id="splash">
+    <h1>Stock Synesthesia</h1>
+    <p>Tap anywhere to begin your audio‑visual stock journey</p>
+  </div>
+  
+  <!-- Hamburger menu icon (hidden initially) -->
+  <div id="hamburger">&#9776;</div>
+  
+  <!-- Settings panel overlay -->
+  <div id="settingsPanel">
+    <h2>Settings</h2>
+    <label for="calibrationPoint">Calibration Price (% baseline)</label>
+    <input type="number" id="calibrationPoint" value="0" step="0.1" />
+    <label for="maxChange">Max % Change (for mapping)</label>
+    <input type="number" id="maxChange" value="10" step="0.1" />
+    <label for="baseColor">Base Color (Calibration)</label>
+    <input type="color" id="baseColor" value="#9acd32" />
+    <label for="positiveColor">Positive Extreme Color</label>
+    <input type="color" id="positiveColor" value="#800080" />
+    <label for="negativeColor">Negative Extreme Color</label>
+    <input type="color" id="negativeColor" value="#ff0000" />
+    <button id="saveSettings">Save Settings</button>
+    <button id="closeSettings">Close</button>
+  </div>
+  
+  <!-- Left sidebar with stock controls (hidden initially) -->
+  <div id="stockControls">
+    <button id="addStockButton">Add Stock</button>
+  </div>
+  
+  <!-- Custom modal for adding a new stock -->
+  <div id="addStockModal">
+    <div class="modalContent">
+      <h2>Add Stock</h2>
+      <input type="text" id="newStockInput" placeholder="Enter stock symbol">
+      <div>
+        <button id="modalAddStockButton">Add</button>
+        <button id="modalCancelButton">Cancel</button>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      // --- Core Elements ---
+      const canvas = document.getElementById('canvas');
+      const ctx = canvas.getContext('2d');
+      const splash = document.getElementById('splash');
+      const hamburger = document.getElementById('hamburger');
+      const settingsPanel = document.getElementById('settingsPanel');
+      const saveSettingsBtn = document.getElementById('saveSettings');
+      const closeSettingsBtn = document.getElementById('closeSettings');
+      const stockControlsContainer = document.getElementById('stockControls');
+      const addStockButton = document.getElementById('addStockButton');
+      const addStockModal = document.getElementById('addStockModal');
+      const newStockInput = document.getElementById('newStockInput');
+      const modalAddStockButton = document.getElementById('modalAddStockButton');
+      const modalCancelButton = document.getElementById('modalCancelButton');
+      
+      // Define a left margin so drawings don’t overlap the sidebar.
+      const marginLeft = 130;
+      
+      // --- Resize canvas ---
+      function resizeCanvas() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+      }
+      window.addEventListener('resize', resizeCanvas);
+      resizeCanvas();
+      
+      // --- Dismiss splash screen and reveal sidebar and hamburger ---
+      function dismissSplash(e) {
+        if (audioCtx.state === 'suspended') { audioCtx.resume(); }
+        splash.style.transition = 'opacity 0.5s';
+        splash.style.opacity = 0;
+        setTimeout(() => {
+          splash.remove();
+          stockControlsContainer.style.display = 'block';
+          hamburger.style.display = 'block';
+        }, 500);
+      }
+      canvas.addEventListener('mousedown', dismissSplash, {once: true});
+      canvas.addEventListener('touchstart', dismissSplash, {once: true});
+      splash.addEventListener('mousedown', dismissSplash, {once: true});
+      splash.addEventListener('touchstart', dismissSplash, {once: true});
+      
+      // --- Toggle settings panel ---
+      hamburger.addEventListener('click', () => {
+        settingsPanel.classList.toggle('visible');
+      });
+      closeSettingsBtn.addEventListener('click', () => {
+        settingsPanel.classList.remove('visible');
+      });
+      
+      // --- Settings (defaults) ---
+      let settings = {
+        calibration: parseFloat(document.getElementById('calibrationPoint').value),
+        maxChange: parseFloat(document.getElementById('maxChange').value),
+        baseColor: document.getElementById('baseColor').value,
+        positiveColor: document.getElementById('positiveColor').value,
+        negativeColor: document.getElementById('negativeColor').value
+      };
+      saveSettingsBtn.addEventListener('click', () => {
+        settings.calibration = parseFloat(document.getElementById('calibrationPoint').value);
+        settings.maxChange = parseFloat(document.getElementById('maxChange').value);
+        settings.baseColor = document.getElementById('baseColor').value;
+        settings.positiveColor = document.getElementById('positiveColor').value;
+        settings.negativeColor = document.getElementById('negativeColor').value;
+        settingsPanel.classList.remove('visible');
+      });
+      
+      // --- Web Audio API Setup ---
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      const audioCtx = new AudioContext();
+      
+      // --- Stock Object Constructor ---
+      function Stock(symbol) {
+        this.symbol = symbol.trim().toUpperCase();
+        this.currentPrice = null;
+        this.calibrationPrice = null;
+        this.history = []; // last 100 price points
+        this.lastUpdate = Date.now();
+        this.color = settings.baseColor;
+        this.pitch = 261.63; // middle C
+        this.collapsed = false; // whether to show a snapshot
+        this.instrument = "sine"; // default oscillator type
+      }
+      
+      // --- Mapping Function ---
+      function mapChange(changePercent) {
+        const norm = Math.max(-settings.maxChange, Math.min(settings.maxChange, changePercent));
+        const ratio = (norm + settings.maxChange) / (2 * settings.maxChange);
+        const lowC = 130.81, midC = 261.63, highC = 523.25;
+        let frequency;
+        if (norm >= 0) {
+          frequency = midC + (highC - midC) * ((ratio - 0.5) / 0.5);
+        } else {
+          frequency = lowC + (midC - lowC) * (ratio / 0.5);
+        }
+        function hexToRgb(hex) {
+          let bigint = parseInt(hex.slice(1), 16);
+          return { r: (bigint >> 16) & 255, g: (bigint >> 8) & 255, b: bigint & 255 };
+        }
+        function rgbToHex(r, g, b) {
+          return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+        }
+        const baseRGB = hexToRgb(settings.baseColor);
+        const targetRGB = hexToRgb(norm >= 0 ? settings.positiveColor : settings.negativeColor);
+        const t = Math.abs(norm) / settings.maxChange;
+        const r = Math.round(baseRGB.r + (targetRGB.r - baseRGB.r) * t);
+        const g = Math.round(baseRGB.g + (targetRGB.g - baseRGB.g) * t);
+        const b = Math.round(baseRGB.b + (targetRGB.b - baseRGB.b) * t);
+        const color = rgbToHex(r, g, b);
+        return { frequency, color };
+      }
+      
+      // --- Audio Tone Playback ---
+      function playTone(frequency, instrument) {
+        const oscillator = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+        oscillator.frequency.value = frequency;
+        oscillator.type = instrument;
+        gainNode.gain.setValueAtTime(0.5, audioCtx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 1);
+        oscillator.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+        oscillator.start();
+        oscillator.stop(audioCtx.currentTime + 1);
+      }
+      
+      // --- Stocks and Sidebar Controls ---
+      let stocks = [];
+      let stockControlsArray = [];
+      
+      function addStockControl(stock) {
+        const controlDiv = document.createElement("div");
+        controlDiv.className = "stockControl";
+        // Collapse/Expand button
+        const btn = document.createElement("button");
+        btn.className = "stockButton";
+        btn.textContent = stock.symbol;
+        btn.style.background = stock.color;
+        btn.addEventListener("click", () => {
+          stock.collapsed = !stock.collapsed;
+        });
+        controlDiv.appendChild(btn);
+        // Instrument dropdown
+        const select = document.createElement("select");
+        select.className = "instrumentSelect";
+        const instruments = ["sine", "square", "triangle", "sawtooth"];
+        instruments.forEach(inst => {
+          const option = document.createElement("option");
+          option.value = inst;
+          option.textContent = inst;
+          if (inst === stock.instrument) option.selected = true;
+          select.appendChild(option);
+        });
+        select.addEventListener("change", (e) => {
+          stock.instrument = e.target.value;
+        });
+        controlDiv.appendChild(select);
+        // Remove button
+        const removeBtn = document.createElement("button");
+        removeBtn.className = "removeButton";
+        removeBtn.textContent = "×";
+        removeBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          stocks = stocks.filter(s => s !== stock);
+          controlDiv.remove();
+        });
+        controlDiv.appendChild(removeBtn);
+        // Insert control above the Add Stock button.
+        stockControlsContainer.insertBefore(controlDiv, addStockButton);
+        stockControlsArray.push({ stock, btn, select });
+      }
+      
+      // Show the custom add-stock modal.
+      function showAddStockModal() {
+        newStockInput.value = "";
+        addStockModal.style.display = "flex";
+        newStockInput.focus();
+      }
+      
+      // Hide the modal.
+      function hideAddStockModal() {
+        addStockModal.style.display = "none";
+      }
+      
+      addStockButton.addEventListener("click", showAddStockModal);
+      
+      modalAddStockButton.addEventListener("click", () => {
+        const newSymbol = newStockInput.value;
+        if (newSymbol && newSymbol.trim()) {
+          const newStock = new Stock(newSymbol);
+          stocks.push(newStock);
+          addStockControl(newStock);
+          hideAddStockModal();
+        }
+      });
+      
+      modalCancelButton.addEventListener("click", hideAddStockModal);
+      
+      // --- Simulated Stock Data Updates ---
+      function updateStockData() {
+        stocks.forEach(stock => {
+          const now = Date.now();
+          if (now - stock.lastUpdate > 1000) {
+            if (stock.currentPrice === null) {
+              stock.currentPrice = 100 + Math.random() * 100;
+              stock.calibrationPrice = stock.currentPrice;
+            } else {
+              const change = stock.currentPrice * (Math.random() * 0.01 - 0.005);
+              stock.currentPrice += change;
+            }
+            stock.lastUpdate = now;
+            stock.history.push(stock.currentPrice);
+            if (stock.history.length > 100) stock.history.shift();
+            const changePercent = ((stock.currentPrice - stock.calibrationPrice) / stock.calibrationPrice) * 100;
+            const mapping = mapChange(changePercent);
+            stock.color = mapping.color;
+            stock.pitch = mapping.frequency;
+            if (Math.abs(changePercent) > 0.1) {
+              playTone(stock.pitch, stock.instrument);
+            }
+          }
+        });
+      }
+      
+      // --- Helper: Draw a rounded rectangle ---
+      function roundRect(ctx, x, y, width, height, radius) {
+        ctx.beginPath();
+        ctx.moveTo(x + radius, y);
+        ctx.lineTo(x + width - radius, y);
+        ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+        ctx.lineTo(x + width, y + height - radius);
+        ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+        ctx.lineTo(x + radius, y + height);
+        ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+        ctx.lineTo(x, y + radius);
+        ctx.quadraticCurveTo(x, y, x + radius, y);
+        ctx.closePath();
+      }
+      
+      // --- Helper: Draw volatility indicator that morphs with volatility ---
+      function drawVolatilityIndicator(cx, cy, vol) {
+        const spikes = 8;
+        const baseRadius = 10;
+        const innerRadius = baseRadius * (1 - vol * 0.8);
+        const outerRadius = baseRadius * (1 + vol * 0.8);
+        ctx.beginPath();
+        for (let i = 0; i < spikes * 2; i++) {
+          const angle = (Math.PI * 2 / (spikes * 2)) * i;
+          const r = (i % 2 === 0) ? outerRadius : innerRadius;
+          const x = cx + r * Math.cos(angle);
+          const y = cy + r * Math.sin(angle);
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.closePath();
+        ctx.strokeStyle = "#fff";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+      
+      // --- Graph Drawing ---
+      function drawGraphs() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const n = stocks.length;
+        if (n === 0) return;
+        const graphHeight = canvas.height / n;
+        stocks.forEach((stock, idx) => {
+          const yOffset = idx * graphHeight;
+          // Draw background for this stock’s area (shifted right by marginLeft)
+          ctx.fillStyle = "#111";
+          ctx.fillRect(marginLeft, yOffset, canvas.width - marginLeft, graphHeight);
+          // Draw stock symbol and current price
+          ctx.fillStyle = "#fff";
+          ctx.font = "16px Quicksand";
+          ctx.fillText(stock.symbol + " - " + (stock.currentPrice ? stock.currentPrice.toFixed(2) : "--"), marginLeft + 10, yOffset + 20);
+          if (!stock.collapsed) {
+            // Expanded view: draw full waveform
+            if (stock.history.length > 1) {
+              ctx.beginPath();
+              const step = (canvas.width - marginLeft - 20) / (stock.history.length - 1);
+              for (let i = 0; i < stock.history.length; i++) {
+                const price = stock.history[i];
+                const range = stock.calibrationPrice * settings.maxChange / 100;
+                const minPrice = stock.calibrationPrice - range;
+                const maxPrice = stock.calibrationPrice + range;
+                // Clamp normalized value to keep waveform within bounds.
+                const normalized = Math.max(0, Math.min(1, (price - minPrice) / (maxPrice - minPrice)));
+                const xPos = marginLeft + 10 + i * step;
+                const yPos = yOffset + graphHeight - normalized * (graphHeight - 40) - 20;
+                if (i === 0) ctx.moveTo(xPos, yPos);
+                else ctx.lineTo(xPos, yPos);
+              }
+              ctx.strokeStyle = stock.color;
+              ctx.lineWidth = 3;
+              ctx.stroke();
+              // Latest point bubble
+              const lastX = marginLeft + 10 + (stock.history.length - 1) * step;
+              const lastPrice = stock.history[stock.history.length - 1];
+              const range = stock.calibrationPrice * settings.maxChange / 100;
+              const minPrice = stock.calibrationPrice - range;
+              const maxPrice = stock.calibrationPrice + range;
+              const normalized = Math.max(0, Math.min(1, (lastPrice - minPrice) / (maxPrice - minPrice)));
+              const lastY = yOffset + graphHeight - normalized * (graphHeight - 40) - 20;
+              ctx.beginPath();
+              ctx.arc(lastX, lastY, 8, 0, Math.PI * 2);
+              ctx.fillStyle = "#fff";
+              ctx.fill();
+              // Severe change spikey texture
+              const changePercent = ((stock.currentPrice - stock.calibrationPrice) / stock.calibrationPrice) * 100;
+              if (Math.abs(changePercent) > 2) {
+                ctx.strokeStyle = "#fff";
+                ctx.lineWidth = 1;
+                for (let i = 0; i < 12; i++) {
+                  const angle = i * (Math.PI / 6);
+                  const spikeX = lastX + Math.cos(angle) * 12;
+                  const spikeY = lastY + Math.sin(angle) * 12;
+                  ctx.beginPath();
+                  ctx.moveTo(lastX, lastY);
+                  ctx.lineTo(spikeX, spikeY);
+                  ctx.stroke();
+                }
+              }
+            }
+          } else {
+            // Collapsed view: draw a 60x60 rounded box that shows a magnified snapshot.
+            const boxSize = 60;
+            const boxX = marginLeft + 10;
+            const boxY = yOffset + 30;
+            const radius = 10;
+            // Draw rounded rectangle filled with the current stock color.
+            roundRect(ctx, boxX, boxY, boxSize, boxSize, radius);
+            ctx.fillStyle = stock.color;
+            ctx.fill();
+            // Draw a white border around the rounded box.
+            roundRect(ctx, boxX, boxY, boxSize, boxSize, radius);
+            ctx.strokeStyle = "#fff";
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            // Draw miniature waveform inside the box (clamping values to keep it inside).
+            const miniHistory = stock.history.slice(-10);
+            if (miniHistory.length > 1) {
+              ctx.beginPath();
+              const miniStep = boxSize / (miniHistory.length - 1);
+              const range = stock.calibrationPrice * settings.maxChange / 100;
+              const minPrice = stock.calibrationPrice - range;
+              const maxPrice = stock.calibrationPrice + range;
+              miniHistory.forEach((price, i) => {
+                const normalized = Math.max(0, Math.min(1, (price - minPrice) / (maxPrice - minPrice)));
+                const xPos = boxX + i * miniStep;
+                const yPos = boxY + boxSize - normalized * boxSize;
+                if (i === 0) ctx.moveTo(xPos, yPos);
+                else ctx.lineTo(xPos, yPos);
+              });
+              ctx.strokeStyle = "rgba(255,255,255,0.8)";
+              ctx.lineWidth = 2;
+              ctx.stroke();
+            }
+            // Draw volatility indicator that always shows.
+            const changePercent = ((stock.currentPrice - stock.calibrationPrice) / stock.calibrationPrice) * 100;
+            const vol = Math.min(1, Math.abs(changePercent) / 10);
+            drawVolatilityIndicator(boxX + boxSize/2, boxY + boxSize/2, vol);
+          }
+        });
+      }
+      
+      // --- Main Animation Loop ---
+      function animate() {
+        updateStockData();
+        drawGraphs();
+        requestAnimationFrame(animate);
+      }
+      
+      animate();
+    });
+  </script>
+</body>
+</html>
